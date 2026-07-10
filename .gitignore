@@ -3,5 +3,8 @@
 /Analysis/.ipynb_checkpoints
 /Analysis/Experiments
 /.env
-**/.DS_Store
 **/__pycache__
+**/.DS_Store
+
+/CNN_models/
+*.tfrecord
