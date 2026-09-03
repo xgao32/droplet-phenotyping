@@ -1,4 +1,4 @@
-pyt#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Estimate micrometers-per-pixel from embedded ruler annotations in microscopy images.
 

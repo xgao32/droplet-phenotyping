@@ -1,9 +1,9 @@
 # Droplet size analysis
 
 These scripts are designed for the Leica DMI8 droplet images used in the
-`phenotyping-updates` branch. The repository contains tools to detect droplet
+`phenotyping-updates` branch to detect droplet
 boundaries, estimate the image scale from embedded ruler annotations, and
-produce publication-ready size histograms and per-image summaries.
+produce size histograms and per-image summaries.
 
 ## 1. Quick overview (automatic scale estimation)
 
@@ -130,7 +130,3 @@ Outputs (example):
 - Tuning Hough parameters: if droplets are missing or false positives appear,
   adjust `--param2`, `--min-dist-px`, and radius bounds once on a
   representative image and reuse those parameters for a batch.
-
-If you want, the README can be extended with a short script that runs the
-estimator and detector in one command and validates the produced scale before
-processing the full dataset.
