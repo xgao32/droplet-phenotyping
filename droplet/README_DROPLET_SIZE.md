@@ -1,144 +1,136 @@
 # Droplet size analysis
 
 These scripts are designed for the Leica DMI8 droplet images used in the
-`phenotyping-updates` branch.
-```
+`phenotyping-updates` branch. The repository contains tools to detect droplet
+boundaries, estimate the image scale from embedded ruler annotations, and
+produce publication-ready size histograms and per-image summaries.
 
-## 2. Calibrate the image scale
+## 1. Quick overview (automatic scale estimation)
 
-The detector needs the physical scale in µm/pixel.
+New workflow highlights:
 
-For a particular Leica imaging configuration, make a CSV such as:
+- The pixel → micrometer scale is estimated automatically from ruler
+  annotations inside the image using `droplet/estimate_scale.py`.
+- `droplet/droplet_detection.py` accepts `--um-per-pixel` optionally; when
+  omitted it will try to estimate the scale from the first image.
+- Use `--auto-output` with an input folder named `input` to write results to a
+  sibling `output` directory (e.g. `droplet/example/output`).
 
-```csv
-pixel_length,um_length
-217.3,97.33
-204.1,91.61
-211.4,94.61
-220.0,98.77
-```
+This lets you run the detector without manually looking up the µm/px value.
 
-Then run:
+## 2. Estimate the image scale (recommended)
 
-```bash
-python Tools/calibrate_scale.py calibration.csv
-```
-
-Use the reported `Scale` as `--um-per-pixel`.
-
-For the two example images supplied during development, approximately
-0.44–0.45 µm/pixel is expected. For production analysis, use calibration
-measurements from the exact exported image/magnification rather than copying
-this value blindly.
-
-## 3. Detect droplets
-
-Example for a target range of 90–100 µm:
+If you want to inspect or validate the automatic estimate before running the
+full detector, run the scale estimator on one representative image:
 
 ```bash
-python Tools/droplet_detection.py \
-    --input images/ \
-    --output results/droplet_size \
-    --um-per-pixel 0.447 \
-    --min-diameter 90 \
-    --max-diameter 100
+python droplet/estimate_scale.py --input /Users/xiangxigao/Desktop/git/droplet-phenotyping/droplet/example/input/TECH_XG_014_1_300_100_12hr_ch00.png --debug
 ```
 
-Outputs:
+Notes:
+
+- The estimator uses OCR (pytesseract) to find labels like `75.4 µm` in the
+  image and pairs each found label with the nearest detected ruler line. When
+  more than one ruler measurement is found it averages the inferred µm/px
+  values (arithmetic mean) to produce a single `um_per_pixel` estimate.
+- If OCR/Tesseract is not available, run the estimator in interactive mode
+  to click two endpoints of a visible ruler and type the physical length:
+
+```bash
+python droplet/estimate_scale.py --input /path/to/image.png --interactive
+```
+
+To enable fully automatic estimation, install Tesseract and pytesseract:
+
+- macOS: `brew install tesseract`
+- Python: `pip install pytesseract`
+
+## 3. Detect droplets (no manual µm/px required)
+
+Run the detector on the example folder and place all outputs under
+`droplet/example/output` (use `--auto-output`):
+
+```bash
+python droplet/droplet_detection.py \
+    --input droplet/example/input \
+    --auto-output \
+    --min-diameter 60 \
+    --max-diameter 120 \
+    --param2 35 --min-dist-px 110 --min-radius-px 40 --max-radius-px 200
+```
+
+Behavior:
+
+- If `--um-per-pixel` is omitted the script attempts to estimate the scale
+  from the first image using `droplet/estimate_scale.py` (OCR required for
+  fully automatic behavior).
+- The detector writes:
 
 ```text
-results/droplet_size/
+droplet/example/output/
 ├── droplet_measurements.csv
-└── annotated/
-    ├── image1_annotated.png
-    ├── image2_annotated.png
-    └── ...
+├── annotated/                  # per-image detection annotations
+│   └── <image>_annotated.png
+└── analysis/                   # downstream analysis (created by the separate analysis step)
+    ├── droplet_size_summary.csv
+    ├── per_image_summary.csv
+    ├── droplet_size_histogram_all.png
+    ├── droplet_size_histogram_accepted.png
+    └── annotated_analysis/     # per-image analysis overlays created by droplet_analysis
+        └── <image>_analysis_annotated.png
 ```
 
-The default behavior excludes droplets touching the image border because
-their apparent diameter is incomplete.
+Example (paths on this machine):
 
-To keep border droplets:
+Input image (before):
+
+![Input image](/Users/xiangxigao/Desktop/git/droplet-phenotyping/droplet/example/input/TECH_XG_014_1_300_100_12hr_ch00.png)
+
+Annotated detection (after):
+
+![Annotated detection](/Users/xiangxigao/Desktop/git/droplet-phenotyping/droplet/example/output/annotated/TECH_XG_014_1_300_100_12hr_ch00_annotated.png)
+
+Annotated analysis overlay (after analysis):
+
+![Annotated analysis](/Users/xiangxigao/Desktop/git/droplet-phenotyping/droplet/example/output/analysis/annotated_analysis/TECH_XG_014_1_300_100_12hr_ch00_analysis_annotated.png)
+
+## 4. Downstream analysis (histograms & CSV)
+
+Run the downstream analysis to produce population statistics, histograms, and
+per-image annotated overlays. If you used `--auto-output` above the input CSV
+will be at `droplet/example/output/droplet_measurements.csv`.
 
 ```bash
---include-partial
+python droplet/droplet_analysis.py \
+    --input droplet/example/output/droplet_measurements.csv \
+    --output droplet/example/output/analysis \
+    --min-diameter 60 \
+    --max-diameter 120
 ```
 
-### Important Hough parameters
+Outputs (example):
 
-For images similar to the supplied Leica images:
+- `droplet/example/output/analysis/droplet_size_summary.csv`
+- `droplet/example/output/analysis/per_image_summary.csv`
+- `droplet/example/output/analysis/droplet_sizes.csv` (per-droplet table)
+- `droplet/example/output/analysis/droplet_size_histogram_all.png`
+- `droplet/example/output/analysis/droplet_size_histogram_accepted.png`
+- `droplet/example/output/analysis/annotated_analysis/<image>_analysis_annotated.png`
 
-```text
---param2 35
---min-dist-px 110
---min-radius-px 70
---max-radius-px 130
-```
+## 5. Notes & troubleshooting
 
-`--param2` controls detection stringency:
+- Multiple rulers: the estimator averages multiple detected ruler measurements
+  (arithmetic mean) to improve robustness when several ruler labels are
+  present in an image.
+- OCR reliability: automatic estimation relies on pytesseract. If OCR does not
+  find ruler labels the detector will not be able to infer µm/px and you will
+  need to provide `--um-per-pixel` or use `--interactive` to measure a ruler
+  manually.
+- Install Tesseract for best results (see above).
+- Tuning Hough parameters: if droplets are missing or false positives appear,
+  adjust `--param2`, `--min-dist-px`, and radius bounds once on a
+  representative image and reuse those parameters for a batch.
 
-- increase it if there are false positives
-- decrease it if real droplets are being missed
-
-`--min-dist-px` prevents multiple detections of the same droplet.
-
-## 4. Downstream analysis
-
-```bash
-python Analysis/droplet_analysis.py \
-    --input results/droplet_size/droplet_measurements.csv \
-    --output results/droplet_size/analysis \
-    --min-diameter 90 \
-    --max-diameter 100
-```
-
-Outputs:
-
-```text
-results/droplet_size/analysis/
-├── droplet_size_summary.csv
-├── per_image_summary.csv
-├── droplet_size_histogram_all.png
-└── droplet_size_histogram_accepted.png
-```
-
-The summary contains:
-
-- number of droplets
-- mean diameter
-- median diameter
-- standard deviation
-- CV%
-- minimum/maximum
-- accepted fraction
-
-## 5. Recommended workflow for many images
-
-Keep original Leica images untouched:
-
-```text
-images/
-    experiment_01/
-        image001.tif
-        image002.tif
-    experiment_02/
-        image003.tif
-```
-
-Then run the detector on the whole directory. It recursively processes all
-supported TIFF/PNG/JPEG files and combines results into one CSV.
-
-## Notes on the current detector
-
-The current implementation uses Hough-gradient circle detection because the
-supplied images have strong, approximately circular droplet boundaries and
-densely packed droplets.
-
-The annotations exported by Leica (ruler lines, labels, etc.) can remain in
-the image; the circle detector searches for circular boundaries rather than
-trying to threshold the whole image.
-
-For a large dataset, manually inspect a random subset of annotated images
-before trusting the population statistics. The `--param2`, radius limits,
-and minimum-distance parameters should be tuned once on representative
-images and then kept fixed for a batch.
+If you want, the README can be extended with a short script that runs the
+estimator and detector in one command and validates the produced scale before
+processing the full dataset.

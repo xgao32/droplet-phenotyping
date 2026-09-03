@@ -31,6 +31,7 @@ from typing import Iterable
 import cv2
 import numpy as np
 import pandas as pd
+import sys
 
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
@@ -287,8 +288,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--um-per-pixel",
         type=float,
-        required=True,
-        help="Physical scale in micrometers per image pixel.",
+        default=None,
+        help="Physical scale in micrometers per image pixel. If omitted, the script will attempt to estimate the scale automatically from ruler annotations embedded in the images (requires OCR).",
+    )
+    parser.add_argument(
+        "--auto-output",
+        action="store_true",
+        help="When input is a folder named 'input', place results under a sibling 'output' folder (e.g. droplet/example/output).",
     )
     parser.add_argument(
         "--min-diameter",
@@ -348,6 +354,68 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+
+    # Determine output path. If user requested auto-output and input looks like
+    # a folder named 'input', set output to sibling 'output' folder.
+    if args.auto_output and args.input.is_dir() and args.input.name == 'input' and args.output == Path('results/droplet_size'):
+        args.output = args.input.parent / 'output'
+
+    output = args.output
+
+    # If um_per_pixel was not supplied, try to estimate it from the first image using OCR/ruler.
+    if args.um_per_pixel is None:
+        try:
+            from .estimate_scale import estimate_scale_from_image, interactive_measure
+        except Exception:
+            # fall back to relative import for direct script execution
+            try:
+                from estimate_scale import estimate_scale_from_image, interactive_measure
+            except Exception:
+                estimate_scale_from_image = None
+                interactive_measure = None
+
+        um_per_pixel = None
+        if estimate_scale_from_image is not None:
+            try:
+                images = find_images(args.input)
+                if images:
+                    # Try up to the first 3 images to estimate scale and average results
+                    estimates = []
+                    n_try = min(3, len(images))
+                    for img in images[:n_try]:
+                        try:
+                            print(f"Attempting to estimate scale from image: {img}")
+                            r = estimate_scale_from_image(img)
+                            if r and r.get('um_per_pixel'):
+                                estimates.append(float(r['um_per_pixel']))
+                                print(f"  -> image estimate: {estimates[-1]:.6f} µm/px")
+                            else:
+                                print(f"  -> no automatic estimate from {img}")
+                        except Exception as e:
+                            print(f"  -> estimation failed for {img}: {e}")
+
+                    if estimates:
+                        um_per_pixel = float(sum(estimates) / len(estimates))
+                        print(f"Aggregated estimated um/pixel = {um_per_pixel:.6f} from {len(estimates)} image(s)")
+                    else:
+                        print("Could not estimate scale automatically from the first images.")
+                        # Try interactive fallback once on the first image
+                        try:
+                            if interactive_measure is not None:
+                                print("Falling back to interactive ruler measurement. A window will open for you to select/measure a ruler line.")
+                                r2 = interactive_measure(images[0])
+                                um_per_pixel = float(r2.get('um_per_pixel'))
+                                print(f"Interactive estimate: um/pixel = {um_per_pixel:.6f}")
+                            else:
+                                print("Interactive measurement not available. Please provide --um-per-pixel manually.")
+                        except Exception as ie:
+                            print(f"Interactive measurement failed: {ie}")
+            except Exception as exc:
+                print(f"Scale estimation failed: {exc}")
+
+        if um_per_pixel is None:
+            raise ValueError("--um-per-pixel must be provided or automatic estimation must succeed")
+        args.um_per_pixel = um_per_pixel
 
     if args.um_per_pixel <= 0:
         raise ValueError("--um-per-pixel must be > 0")
