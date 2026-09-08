@@ -2,6 +2,7 @@
 /.vscode
 /Analysis/.ipynb_checkpoints
 /Analysis/Experiments
+/CNN_models
 /.env
 **/__pycache__
 **/.DS_Store

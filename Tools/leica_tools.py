@@ -9,7 +9,11 @@ import glob
 from readlif.reader import LifFile
 import datetime
 from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(__file__), '../.env'))
+
+
+load_dotenv(os.path.join(os.path.dirname(__file__), '../example.env'))
+
+print('EXP_DIR: ', os.getenv('EXP_DIR'))
 
 def parse_lif(file):
     lif = LifFile(file)
