@@ -5,6 +5,3 @@
 /.env
 **/__pycache__
 **/.DS_Store
-
-/CNN_models/
-*.tfrecord
