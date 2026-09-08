@@ -20,7 +20,7 @@ from keras.models import Model, load_model
 from Tools.leica_tools import RawLoader
 from Tools.sample_tools import Sample
 
-load_dotenv(os.path.join(os.path.dirname(__file__), '../.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), '../example.env'))
 
 class DbManager:
     def __init__(self):
