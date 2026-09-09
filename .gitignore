@@ -1,7 +1,7 @@
 /.idea
 /.vscode
 /Analysis/.ipynb_checkpoints
-/Analysis/Experiments/**/*.png
+/Analysis/Experiments/**/preview.png
 /CNN_models
 /.env
 **/__pycache__
