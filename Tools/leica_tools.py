@@ -25,7 +25,8 @@ def parse_lif(file):
         n_channels = im['channels']
         t_index = im['dims'][3]
         for t in range(t_index):
-            image_df.append([i, im['name'], image_ts[t*n_channels], t , n_channels , im['bit_depth'][0], im['scale'][0], merged])
+            #image_df.append([i, im['name'], image_ts[t*n_channels], t , n_channels , im['bit_depth'][0], im['scale'][0], merged])
+            image_df.append([i, im['name'],t, t , n_channels , im['bit_depth'][0], im['scale'][0], merged])
     image_df = pd.DataFrame(image_df, columns=['index', 'name', 'timestamp', 't_index', 'n_channels', 'bit_depth', 'resolution', 'merged'])
     return image_df
 
