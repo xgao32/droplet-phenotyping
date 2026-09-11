@@ -1,8 +1,7 @@
+
 # Droplet size analysis
 
-These scripts are designed for the Leica DMI8 droplet images used in the
-`phenotyping-updates` branch to detect droplet
-boundaries, estimate the image scale from embedded ruler annotations, and
+These scripts are designed for the Leica DMI8 droplet images and are used to detect droplet boundaries, estimate the image scale from embedded ruler annotations, and
 produce size histograms and per-image summaries.
 
 ## 1. Quick overview (automatic scale estimation)
